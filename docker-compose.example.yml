@@ -1,0 +1,38 @@
+# Copy to docker-compose.yml and adjust.
+# TLS is done by your reverse proxy (see nginx.example.conf).
+services:
+  simpletasks-sync:
+    build: .
+    restart: unless-stopped
+    environment:
+      SYNC_MAX_VAULT_BYTES: "5242880"
+      # all vaults together, keeps the disk from filling up
+      SYNC_MAX_TOTAL_BYTES: "2147483648"
+      SYNC_INACTIVE_DAYS: "90"
+      SYNC_RATE_LIMIT: "120"
+      # only true when a proxy you control sets X-Forwarded-For
+      TRUST_PROXY: "true"
+    volumes:
+      # must be writable for uid 1000 (mkdir data && chown 1000:1000 data)
+      - ./data:/data
+    ports:
+      # reachable only from the host, the proxy forwards to it
+      # host port can be changed with SYNC_PORT in a .env file next to this file
+      - "127.0.0.1:${SYNC_PORT:-8463}:8463"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # node runs javascript on one core anyway, these are safety limits
+    cpus: "1.0"
+    mem_limit: 256m
+    pids_limit: 64
+    stop_grace_period: 10s
+    logging:
+      driver: local
+      options:
+        max-size: "5m"
+        max-file: "2"
